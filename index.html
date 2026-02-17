@@ -1751,25 +1751,55 @@
       if (!d) return '';
 
       try {
-        if (d instanceof Date) return d.toISOString().split('T')[0];
-        const str = String(d).trim();
+        let dateObj = null;
 
-        // 1. ISO YYYY-MM-DD
-        let match = str.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
-        if (match) {
-          let y = parseInt(match[1]);
-          if (y > 2400) y -= 543;
-          return `${y}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}`;
+        // 1. Handle Date objects
+        if (d instanceof Date) {
+          dateObj = d;
+        } else {
+          const str = String(d).trim();
+          if (!str) return '';
+
+          // 2. Try ISO-like YYYY-MM-DD
+          let match = str.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+          if (match) {
+            let y = parseInt(match[1]);
+            const m = parseInt(match[2]);
+            const day = parseInt(match[3]);
+            if (y > 2400) y -= 543;
+            // Return directly to avoid any date object shifting
+            return `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          }
+
+          // 3. Try DMY DD/MM/YYYY
+          match = str.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
+          if (match) {
+            let y = parseInt(match[3]);
+            const m = parseInt(match[2]);
+            const day = parseInt(match[1]);
+            if (y > 2400) y -= 543;
+            return `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          }
+
+          // 4. Fallback parse
+          const parsed = new Date(str);
+          if (!isNaN(parsed.getTime())) {
+            dateObj = parsed;
+          }
         }
 
-        // 2. DMY DD/MM/YYYY
-        match = str.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
-        if (match) {
-          let y = parseInt(match[3]);
-          if (y > 2400) y -= 543;
-          return `${y}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
+        if (dateObj) {
+          // Use LOCAL time components, NOT UTC/ISO
+          // This fixes the issue where 00:00 becomes yesterday
+          const year = dateObj.getFullYear();
+          const normalizedYear = year > 2400 ? year - 543 : year;
+          const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+          const day = String(dateObj.getDate()).padStart(2, '0');
+          return `${normalizedYear}-${month}-${day}`;
         }
-      } catch (e) { console.error(e); }
+
+      } catch (e) { console.error('Date Error:', e); }
+
       return String(d);
     }
 
