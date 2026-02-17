@@ -184,7 +184,8 @@
           </div>
         </div>
         <div class="text-right">
-          <p class="text-sm text-blue-100">วันที่</p>
+          <p class="text-xs text-blue-100 mb-1">สถานะ: <span id="syncStatus"
+              class="bg-white/20 px-2 py-0.5 rounded text-xs">กำลังโหลด...</span></p>
           <p id="currentDate" class="font-semibold"></p>
         </div>
       </div>
@@ -786,6 +787,19 @@
         updateTodayRecords();
         updateStockSummary();
         updateStockHistory();
+
+        // Update Sync Status
+        const pendingCount = data.filter(d => d._isPending).length;
+        const statusEl = document.getElementById('syncStatus');
+        if (statusEl) {
+          if (pendingCount > 0) {
+            statusEl.innerHTML = `⏳ กำลังบันทึก (${pendingCount})`;
+            statusEl.className = 'bg-yellow-400 text-yellow-900 px-2 py-0.5 rounded text-xs font-bold animate-pulse';
+          } else {
+            statusEl.innerHTML = `✅ ข้อมูลล่าสุด`;
+            statusEl.className = 'bg-green-400 text-green-900 px-2 py-0.5 rounded text-xs font-bold';
+          }
+        }
       }
     };
 
