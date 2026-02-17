@@ -773,6 +773,7 @@
         if (localPendingQueue.length > 0) {
           localPendingQueue = localPendingQueue.filter(pendingItem => {
             const isSynced = serverData.some(serverItem =>
+              !serverItem._isPending && // CRITICAL: Ignore items that are marked as pending in the input
               serverItem.timestamp === pendingItem.timestamp &&
               serverItem.type === pendingItem.type &&
               (serverItem.nozzle_name === pendingItem.nozzle_name || !pendingItem.nozzle_name)
@@ -783,8 +784,9 @@
         }
 
         // 2. Merge Server Data + Remaining Pending Data
+        const cleanServerData = serverData.filter(d => !d._isPending);
         const pendingWithFlag = localPendingQueue.map(item => ({ ...item, _isPending: true }));
-        const mergedData = [...serverData, ...pendingWithFlag];
+        const mergedData = [...cleanServerData, ...pendingWithFlag];
 
         // 3. Update App State
         allData = mergedData;
