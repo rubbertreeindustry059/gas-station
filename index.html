@@ -532,18 +532,33 @@
         <div class="card-gradient rounded-xl p-4 shadow-sm border">
           <h2 class="font-semibold text-gray-800 mb-4 flex items-center gap-2"><span
               class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">⛽</span> จัดการชนิดน้ำมัน</h2>
-          <form id="fuelTypeForm" class="space-y-4 mb-6">
-            <div class="grid grid-cols-2 gap-3">
-              <div><label class="block text-xs font-medium text-gray-600 mb-1">ชื่อชนิดน้ำมัน</label> <input type="text"
-                  id="newFuelName" placeholder="เช่น เบนซิน 91" class="w-full px-3 py-2 border rounded-lg text-sm">
+          <form id="fuelTypeForm" class="space-y-4 mb-6 bg-slate-50 p-4 rounded-xl border">
+            <h3 class="text-xs font-bold text-gray-500 uppercase">➕ เพิ่ม/แก้ไข ชนิดน้ำมัน</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div class="md:col-span-1">
+                <label class="block text-[10px] font-medium text-gray-500 mb-1">รหัส ID (อังกฤษ)</label>
+                <input type="text" id="newFuelId" placeholder="เช่น b95"
+                  class="w-full px-3 py-2 border rounded-lg text-sm">
               </div>
-              <div><label class="block text-xs font-medium text-gray-600 mb-1">รหัสอ้างอิง (ภาษาอังกฤษ)</label> <input
-                  type="text" id="newFuelId" placeholder="เช่น b91" class="w-full px-3 py-2 border rounded-lg text-sm">
+              <div class="md:col-span-1">
+                <label class="block text-[10px] font-medium text-gray-500 mb-1">ชื่อเรียก</label>
+                <input type="text" id="newFuelName" placeholder="เช่น เบนซิน 95"
+                  class="w-full px-3 py-2 border rounded-lg text-sm">
+              </div>
+              <div class="md:col-span-1">
+                <label class="block text-[10px] font-medium text-gray-500 mb-1">ไอคอน</label>
+                <input type="text" id="newFuelIcon" placeholder="⛽ หรือ 🟠"
+                  class="w-full px-3 py-2 border rounded-lg text-sm">
+              </div>
+              <div class="md:col-span-1">
+                <label class="block text-[10px] font-medium text-gray-500 mb-1">สีประจำชนิด</label>
+                <input type="color" id="newFuelColor" value="#3b82f6"
+                  class="w-full h-9 p-1 border rounded-lg cursor-pointer">
               </div>
             </div>
             <button type="submit"
-              class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg font-medium transition-all">
-              ➕ เพิ่มชนิดน้ำมันใหม่ </button>
+              class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg font-medium transition-all shadow-sm">
+              💾 บันทึกชนิดน้ำมัน </button>
           </form>
           <div id="fuelTypeList" class="space-y-2 pt-4 border-t">
             <!-- Dynamic list of fuel types -->
@@ -647,7 +662,7 @@
     let tanks = [];
     let stockRecords = [];
     let settings = {
-      stationName: 'ระบบจัดการปั๊มน้ำมัน',
+      stationName: 'ระบบจัดการปั๊มน้ำมัน 1',
       shift1Name: 'กะเช้า',
       shift1Time: '06:00-18:00',
       shift2Name: 'กะบ่าย',
@@ -667,6 +682,22 @@
         e20: 32.00,
         e85: 30.00,
         premium: 40.00
+      },
+      fuelIcons: {
+        diesel: '🔵',
+        gasohol95: '🟠',
+        gasohol91: '🟢',
+        e20: '🟡',
+        e85: '💜',
+        premium: '🔴'
+      },
+      fuelColors: {
+        diesel: '#3b82f6',
+        gasohol95: '#f97316',
+        gasohol91: '#22c55e',
+        e20: '#db2777',
+        e85: '#7c3aed',
+        premium: '#c2410c'
       }
     };
     let fuelTypeNames = settings.fuelTypeNames; // Keep reference for backward compatibility
@@ -675,7 +706,36 @@
     let reportData = null;
     let batchStockItems = []; // Temporary items during entry
 
-    // Fuel type names moved to settings for dynamic management
+    // Dynamic fuel attributes
+    function applyDynamicFuelStyles() {
+      if (!settings || !settings.fuelTypeNames) return;
+      let styleTag = document.getElementById('dynamic-fuel-styles');
+      if (!styleTag) {
+        styleTag = document.createElement('style');
+        styleTag.id = 'dynamic-fuel-styles';
+        document.head.appendChild(styleTag);
+      }
+
+      let css = '';
+      fuelTypeNames = settings.fuelTypeNames || {};
+
+      Object.keys(settings.fuelTypeNames).forEach(id => {
+        const color = (settings.fuelColors && settings.fuelColors[id]) || '#64748b';
+        css += `
+          .fuel-badge.${id} {
+            background-color: ${color}15 !important;
+            color: ${color} !important;
+            border-left: 4px solid ${color} !important;
+          }
+        `;
+      });
+      styleTag.innerHTML = css;
+    }
+
+    // Global helper to get icon
+    function getFuelIcon(id) {
+      return (settings.fuelIcons && settings.fuelIcons[id]) || '⛽';
+    }
     const fuelTypeIcons = {
       diesel: '�',
       gasohol95: '�',
@@ -802,17 +862,33 @@
       priceForm.innerHTML = priceInputsHtml;
       priceForm.appendChild(submitBtn);
 
+      applyDynamicFuelStyles();
+
       // Update Fuel Type Management List
       const fuelTypeList = document.getElementById('fuelTypeList');
-      fuelTypeList.innerHTML = Object.entries(settings.fuelTypeNames).map(([id, name]) => `
-        <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
-          <div class="flex items-center gap-2">
-            <span class="fuel-badge ${['diesel', 'gasohol95', 'gasohol91', 'e20', 'e85', 'premium'].includes(id) ? id : 'fuel-custom'}">${name}</span>
-            <span class="text-[10px] text-gray-400">ID: ${id}</span>
+      fuelTypeList.innerHTML = Object.entries(settings.fuelTypeNames).map(([id, name]) => {
+        const icon = (settings.fuelIcons && settings.fuelIcons[id]) || '⛽';
+        const color = (settings.fuelColors && settings.fuelColors[id]) || '#64748b';
+        return `
+          <div class="flex items-center justify-between p-3 bg-white border rounded-xl shadow-sm">
+            <div class="flex items-center gap-3">
+              <span class="fuel-badge ${id}">
+                <span>${icon}</span>
+                <span>${name}</span>
+              </span>
+              <span class="text-[10px] text-gray-400 font-mono">ID: ${id}</span>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="editFuelType('${id}')" class="text-blue-500 hover:bg-blue-50 p-1.5 rounded-lg transition-all border border-blue-100">
+                <span class="text-xs">แก้ไข</span>
+              </button>
+              <button onclick="deleteFuelType('${id}')" class="text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-all border border-red-100">
+                <span class="text-xs">ลบ</span>
+              </button>
+            </div>
           </div>
-          <button onclick="deleteFuelType('${id}')" class="text-red-500 hover:text-red-700 text-sm">ลบ</button>
-        </div>
-      `).join('');
+        `;
+      }).join('');
 
       // Update all Fuel Type Selects
       const fuelOptions = Object.entries(settings.fuelTypeNames).map(([id, name]) => `
@@ -825,11 +901,13 @@
 
     async function handleFuelTypeSubmit(e) {
       e.preventDefault();
-      const name = document.getElementById('newFuelName').value.trim();
       const id = document.getElementById('newFuelId').value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      const name = document.getElementById('newFuelName').value.trim();
+      const icon = document.getElementById('newFuelIcon').value.trim() || '⛽';
+      const color = document.getElementById('newFuelColor').value;
 
       if (!name || !id) {
-        showToast('กรุณากรอกข้อมูลให้ครบถ้วน', 'error');
+        showToast('กรุณากรอก ID และชื่อให้ครบ', 'error');
         return;
       }
 
@@ -838,6 +916,8 @@
         type: 'settings',
         fuelTypeNames: { ...settings.fuelTypeNames, [id]: name },
         fuelPrices: { ...settings.fuelPrices, [id]: settings.fuelPrices[id] || 0 },
+        fuelIcons: { ...(settings.fuelIcons || {}), [id]: icon },
+        fuelColors: { ...(settings.fuelColors || {}), [id]: color },
         timestamp: new Date().toISOString()
       };
 
@@ -845,18 +925,35 @@
       document.getElementById('fuelTypeForm').reset();
     }
 
+    function editFuelType(id) {
+      document.getElementById('newFuelId').value = id;
+      document.getElementById('newFuelName').value = settings.fuelTypeNames[id] || '';
+      document.getElementById('newFuelIcon').value = (settings.fuelIcons && settings.fuelIcons[id]) || '⛽';
+      document.getElementById('newFuelColor').value = (settings.fuelColors && settings.fuelColors[id]) || '#3b82f6';
+
+      // Scroll to form
+      document.getElementById('fuelTypeForm').scrollIntoView({ behavior: 'smooth' });
+    }
+
     async function deleteFuelType(id) {
       if (confirm(`ยืนยันการลบชนิดน้ำมัน "${settings.fuelTypeNames[id]}"?\n*หากมีหัวจ่ายที่ใช้น้ำมันนี้อยู่ อาจเกิดข้อผิดพลาดในการแสดงผล`)) {
         const newFuelTypeNames = { ...settings.fuelTypeNames };
         const newFuelPrices = { ...settings.fuelPrices };
+        const newFuelIcons = { ...(settings.fuelIcons || {}) };
+        const newFuelColors = { ...(settings.fuelColors || {}) };
+
         delete newFuelTypeNames[id];
         delete newFuelPrices[id];
+        delete newFuelIcons[id];
+        delete newFuelColors[id];
 
         const newSettings = {
           ...settings,
           type: 'settings',
           fuelTypeNames: newFuelTypeNames,
           fuelPrices: newFuelPrices,
+          fuelIcons: newFuelIcons,
+          fuelColors: newFuelColors,
           timestamp: new Date().toISOString()
         };
 
@@ -1011,7 +1108,7 @@
                 </div>
                 <div class="flex items-center gap-2 mt-1">
                   <span class="fuel-badge ${nozzle.fuel_type}">
-                    <span>${fuelTypeIcons[nozzle.fuel_type] || '⛽'}</span>
+                    <span>${getFuelIcon(nozzle.fuel_type)}</span>
                     <span>${fuelTypeNames[nozzle.fuel_type]}</span>
                   </span>
                   <span class="text-xs text-blue-600 font-bold">฿${currentPrice.toFixed(2)}</span>
@@ -1556,7 +1653,7 @@
             <div class="flex items-center justify-between mb-2">
               <p class="font-medium text-gray-800">${data.name}</p>
               <span class="fuel-badge ${data.fuelType}">
-                <span>${fuelTypeIcons[data.fuelType] || '⛽'}</span>
+                <span>${getFuelIcon(data.fuelType)}</span>
                 <span>${fuelTypeNames[data.fuelType]}</span>
               </span>
             </div>
@@ -1680,7 +1777,7 @@
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-3">
               <span class="fuel-badge ${fuelType}">
-                <span>${fuelTypeIcons[fuelType] || '⛽'}</span>
+                <span>${getFuelIcon(fuelType)}</span>
                 <span>${fuelTypeNames[fuelType]}</span>
               </span>
               <span class="text-sm font-bold text-gray-800">${data.totalLiters.toFixed(2)} ลิตร</span>
