@@ -755,23 +755,51 @@
       premium: 38.00
     };
 
-    const dataHandler = {
-      onDataChanged(data) {
-        allData = data;
-        window.allData = data; // Ensure SDK can see recent data
-        nozzles = data.filter(d => d.type === 'nozzle');
-        records = data.filter(d => d.type === 'record');
-        tanks = data.filter(d => d.type === 'tank');
-        stockRecords = data.filter(d => d.type === 'stock_record');
+    // Local Persistence Layer (Guards against data loss)
+    let localPendingQueue = [];
+    try {
+      localPendingQueue = JSON.parse(localStorage.getItem('gas_station_pending_v3') || '[]');
+    } catch (e) { console.error('Local Storage Error', e); }
 
-        const settingsData = data.find(d => d.type === 'settings');
+    function saveLocalPending() {
+      localStorage.setItem('gas_station_pending_v3', JSON.stringify(localPendingQueue));
+    }
+
+    const dataHandler = {
+      onDataChanged(serverData) {
+        if (!serverData) serverData = [];
+
+        // 1. Remove items from pending queue that are now present in server data
+        if (localPendingQueue.length > 0) {
+          localPendingQueue = localPendingQueue.filter(pendingItem => {
+            const isSynced = serverData.some(serverItem =>
+              serverItem.timestamp === pendingItem.timestamp &&
+              serverItem.type === pendingItem.type &&
+              (serverItem.nozzle_name === pendingItem.nozzle_name || !pendingItem.nozzle_name)
+            );
+            return !isSynced;
+          });
+          saveLocalPending();
+        }
+
+        // 2. Merge Server Data + Remaining Pending Data
+        const pendingWithFlag = localPendingQueue.map(item => ({ ...item, _isPending: true }));
+        const mergedData = [...serverData, ...pendingWithFlag];
+
+        // 3. Update App State
+        allData = mergedData;
+        window.allData = mergedData;
+        nozzles = mergedData.filter(d => d.type === 'nozzle');
+        records = mergedData.filter(d => d.type === 'record');
+        tanks = mergedData.filter(d => d.type === 'tank');
+        stockRecords = mergedData.filter(d => d.type === 'stock_record');
+
+        const settingsData = mergedData.find(d => d.type === 'settings');
         if (settingsData) {
           settings = { ...settings, ...settingsData };
-          // Ensure fuelTypeNames is updated before UI
           fuelTypeNames = settings.fuelTypeNames;
           updateSystemUI();
         } else {
-          // Default initialization
           fuelTypeNames = settings.fuelTypeNames;
           updateSystemUI();
         }
@@ -788,12 +816,11 @@
         updateStockSummary();
         updateStockHistory();
 
-        // Update Sync Status
-        const pendingCount = data.filter(d => d._isPending).length;
+        // Update Sync Status Indicator
         const statusEl = document.getElementById('syncStatus');
         if (statusEl) {
-          if (pendingCount > 0) {
-            statusEl.innerHTML = `⏳ กำลังบันทึก (${pendingCount})`;
+          if (localPendingQueue.length > 0) {
+            statusEl.innerHTML = `⏳ กำลังบันทึก (${localPendingQueue.length})`;
             statusEl.className = 'bg-yellow-400 text-yellow-900 px-2 py-0.5 rounded text-xs font-bold animate-pulse';
           } else {
             statusEl.innerHTML = `✅ ข้อมูลล่าสุด`;
@@ -824,6 +851,12 @@
     }
 
     function setupEventListeners() {
+      document.getElementById('recordDate').addEventListener('change', () => {
+        updateMetersFromLastRecord();
+        updateTodayStats();
+        updateTodayFuelSummary();
+        updateTodayRecords();
+      });
       document.getElementById('recordForm').addEventListener('submit', handleRecordSubmit);
       document.getElementById('nozzleForm').addEventListener('submit', handleNozzleSubmit);
       document.getElementById('tankForm').addEventListener('submit', handleTankSubmit);
@@ -1412,18 +1445,29 @@
         return;
       }
 
+      // Add to Local Pending Queue immediately
+      localPendingQueue.push(...recordsToAdd);
+      saveLocalPending();
+
+      // Refresh UI immediately with merged data
+      // We pass the CURRENT allData (which might be server data) to onDataChanged,
+      // which will then merge our new pending items.
+      // However, we need to pass the base server data, not the already merged allData if possible.
+      // But passing allData is fine because onDataChanged handles deduplication by timestamp.
+      dataHandler.onDataChanged(allData);
+
       showLoading(true);
       try {
         const result = await window.dataSdk.createBatch(recordsToAdd);
         if (result.isOk) {
           showToast('บันทึกข้อมูลสำเร็จ! ✅', 'success');
           document.querySelectorAll('.meter-input[data-type="end"]').forEach(input => { input.value = ''; });
-          setTimeout(() => updateMetersFromLastRecord(), 1500);
+          setTimeout(() => updateMetersFromLastRecord(), 500); // Shorter timeout for better UX
         } else {
-          showToast('เกิดข้อผิดพลาดในการบันทึก', 'error');
+          showToast('ระบบจะพยายามบันทึกเบื้องหลัง', 'warning');
         }
       } catch (err) {
-        showToast('ระบบขัดข้อง: ' + err.message, 'error');
+        showToast('บันทึกออฟไลน์: ' + err.message, 'info');
       } finally {
         showLoading(false);
       }
@@ -1813,7 +1857,8 @@
     }
 
     function updateTodayStats() {
-      const today = getTodayString();
+      const selectedInput = document.getElementById('recordDate');
+      const today = selectedInput ? selectedInput.value : getTodayString();
       const todayRecordsList = records.filter(r => normalizeDate(r.date) === today);
 
       let totalSales = 0;
@@ -1835,7 +1880,8 @@
     }
 
     function updateTodayFuelSummary() {
-      const today = getTodayString();
+      const selectedInput = document.getElementById('recordDate');
+      const today = selectedInput ? selectedInput.value : getTodayString();
       const todayRecordsList = records.filter(r => normalizeDate(r.date) === today);
 
       if (todayRecordsList.length === 0) {
@@ -1875,7 +1921,8 @@
     }
 
     function updateTodayRecords() {
-      const today = getTodayString();
+      const selectedInput = document.getElementById('recordDate');
+      const today = selectedInput ? selectedInput.value : getTodayString();
       const todayRecordsList = records.filter(r => normalizeDate(r.date) === today).sort((a, b) =>
         new Date(b.timestamp) - new Date(a.timestamp)
       );
