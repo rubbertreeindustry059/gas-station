@@ -28,29 +28,42 @@
     }
 
     .header-gradient {
-      background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #3b82f6 100%);
+      background: linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #60a5fa 100%);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     }
 
     .fuel-badge {
-      padding: 2px 8px;
-      border-radius: 12px;
-      font-size: 11px;
-      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.025em;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
     }
 
     .diesel {
-      background: #fef3c7;
-      color: #92400e;
+      background: #dbeafe;
+      /* Blue */
+      color: #1e40af;
+      border-left: 3px solid #3b82f6;
     }
 
     .gasohol95 {
-      background: #dcfce7;
-      color: #166534;
+      background: #ffedd5;
+      /* Orange */
+      color: #9a3412;
+      border-left: 3px solid #f97316;
     }
 
     .gasohol91 {
-      background: #dbeafe;
-      color: #1e40af;
+      background: #dcfce7;
+      /* Green */
+      color: #166534;
+      border-left: 3px solid #22c55e;
     }
 
     .e20 {
@@ -77,6 +90,7 @@
     input[type="number"]::-webkit-inner-spin-button,
     input[type="number"]::-webkit-outer-spin-button {
       -webkit-appearance: none;
+      appearance: none;
       margin: 0;
     }
 
@@ -131,13 +145,22 @@
     }
 
     .nozzle-card {
-      background: #f8fafc;
-      border-left: 4px solid #3b82f6;
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+      border: 1px solid #f1f5f9;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .nozzle-card:hover {
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      transform: translateY(-2px);
     }
 
     .stock-card {
-      background: linear-gradient(135deg, #fef3c7 0%, #fef08a 100%);
-      border-left: 4px solid #f59e0b;
+      background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+      border-left: 5px solid #f59e0b;
+      border-radius: 16px;
     }
   </style>
   <style>
@@ -654,12 +677,12 @@
 
     // Fuel type names moved to settings for dynamic management
     const fuelTypeIcons = {
-      diesel: '🛢️',
-      gasohol95: '🟢',
-      gasohol91: '🔵',
+      diesel: '�',
+      gasohol95: '�',
+      gasohol91: '�',
       e20: '🟡',
       e85: '💜',
-      premium: '🟠'
+      premium: '�'
     };
 
     const defaultCosts = {
@@ -982,11 +1005,15 @@
             <div class="flex items-start justify-between mb-3">
               <div>
                 <div class="flex items-center gap-2">
-                  <p class="font-medium text-gray-800">${nozzle.nozzle_name}</p>
+                  <span class="text-xl">⛽</span>
+                  <p class="font-bold text-gray-800">${nozzle.nozzle_name}</p>
                   <span class="recorded-status hidden text-[10px] bg-green-500 text-white px-2 py-0.5 rounded-full">✓ บันทึกแล้ว</span>
                 </div>
                 <div class="flex items-center gap-2 mt-1">
-                  <span class="fuel-badge ${nozzle.fuel_type}">${fuelTypeNames[nozzle.fuel_type]}</span>
+                  <span class="fuel-badge ${nozzle.fuel_type}">
+                    <span>${fuelTypeIcons[nozzle.fuel_type] || '⛽'}</span>
+                    <span>${fuelTypeNames[nozzle.fuel_type]}</span>
+                  </span>
                   <span class="text-xs text-blue-600 font-bold">฿${currentPrice.toFixed(2)}</span>
                 </div>
               </div>
@@ -1528,7 +1555,10 @@
           <div class="stock-card rounded-lg p-4">
             <div class="flex items-center justify-between mb-2">
               <p class="font-medium text-gray-800">${data.name}</p>
-              <span class="fuel-badge ${data.fuelType}">${fuelTypeNames[data.fuelType]}</span>
+              <span class="fuel-badge ${data.fuelType}">
+                <span>${fuelTypeIcons[data.fuelType] || '⛽'}</span>
+                <span>${fuelTypeNames[data.fuelType]}</span>
+              </span>
             </div>
             <div class="grid grid-cols-2 gap-2">
               <div>
@@ -1646,10 +1676,13 @@
       });
 
       const summaryHtml = Object.entries(fuelSummary).map(([fuelType, data]) => `
-        <div class="p-3 bg-gray-50 rounded-lg border-l-4 border-blue-500">
+        <div class="p-3 bg-white border rounded-xl shadow-sm">
           <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <span class="fuel-badge ${fuelType}">${fuelTypeNames[fuelType]}</span>
+            <div class="flex items-center gap-3">
+              <span class="fuel-badge ${fuelType}">
+                <span>${fuelTypeIcons[fuelType] || '⛽'}</span>
+                <span>${fuelTypeNames[fuelType]}</span>
+              </span>
               <span class="text-sm font-bold text-gray-800">${data.totalLiters.toFixed(2)} ลิตร</span>
             </div>
             <span class="text-sm font-bold text-green-600">฿${data.totalRevenue.toLocaleString('th-TH', { minimumFractionDigits: 0 })}</span>
