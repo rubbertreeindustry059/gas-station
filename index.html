@@ -213,7 +213,7 @@
             <p id="todayLiters" class="text-lg font-bold text-green-600">0 ลิตร</p>
           </div>
           <div class="stat-card card-gradient rounded-xl p-4 shadow-sm border">
-            <p class="text-xs text-gray-500 mb-1">ราคาขายวันนี้</p>
+            <p class="text-xs text-gray-500 mb-1">กำไรวันนี้</p>
             <p id="todayProfit" class="text-lg font-bold text-emerald-600">฿0</p>
           </div>
           <div class="stat-card card-gradient rounded-xl p-4 shadow-sm border">
@@ -1733,27 +1733,30 @@
     }
 
     function updateTodayStats() {
-      const today = new Date().toISOString().split('T')[0];
+      // Use local date in YYYY-MM-DD format
+      const today = new Date().toLocaleDateString('en-CA');
       const todayRecordsList = records.filter(r => r.date === today);
 
       let totalSales = 0;
       let totalLiters = 0;
-      let totalCost = 0;
+      let totalProfit = 0;
 
       todayRecordsList.forEach(r => {
         totalSales += r.revenue || 0;
         totalLiters += r.liters_sold || 0;
-        totalCost += r.cost || 0;
+        totalProfit += r.profit || 0;
       });
 
       document.getElementById('todaySales').textContent = '฿' + totalSales.toLocaleString('th-TH', { minimumFractionDigits: 0 });
-      document.getElementById('todayLiters').textContent = totalLiters.toFixed(0) + ' ลิตร';
-      document.getElementById('todayProfit').textContent = '฿' + totalSales.toLocaleString('th-TH', { minimumFractionDigits: 0 });
+      document.getElementById('todayLiters').textContent = totalLiters.toLocaleString('th-TH') + ' ลิตร';
+      document.getElementById('todayProfit').textContent = '฿' + totalProfit.toLocaleString('th-TH', { minimumFractionDigits: 0 });
       document.getElementById('todayTransactions').textContent = todayRecordsList.length;
+
+      console.log('Stats Updated for:', today, 'Records count:', todayRecordsList.length);
     }
 
     function updateTodayFuelSummary() {
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toLocaleDateString('en-CA');
       const todayRecordsList = records.filter(r => r.date === today);
 
       if (todayRecordsList.length === 0) {
@@ -1793,7 +1796,7 @@
     }
 
     function updateTodayRecords() {
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toLocaleDateString('en-CA');
       const todayRecordsList = records.filter(r => r.date === today).sort((a, b) =>
         new Date(b.timestamp) - new Date(a.timestamp)
       );
