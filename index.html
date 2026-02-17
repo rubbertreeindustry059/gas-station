@@ -790,8 +790,9 @@
     };
 
     async function init() {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getTodayString();
       document.getElementById('reportDate').value = today;
+      document.getElementById('recordDate').value = today; // Added back to ensure it starts with today
       document.getElementById('reportStartDate').value = today;
       document.getElementById('reportEndDate').value = today;
       document.getElementById('reportMonth').value = today.substring(0, 7);
@@ -1063,7 +1064,7 @@
       nozzles.forEach(nozzle => {
         // 1. Check if there is an EXISTING record for this EXACT date and shift
         const existingRecord = records.find(r =>
-          r.date === date &&
+          normalizeDate(r.date) === date &&
           r.shift === shift &&
           r.nozzle_name === nozzle.nozzle_name
         );
@@ -1329,7 +1330,7 @@
 
       // Check if EVERYTHING is already recorded
       const alreadyRecordedFullShift = nozzles.every(nozzle =>
-        records.some(r => r.date === date && r.shift === shift && r.nozzle_name === nozzle.nozzle_name)
+        records.some(r => normalizeDate(r.date) === date && r.shift === shift && r.nozzle_name === nozzle.nozzle_name)
       );
 
       if (alreadyRecordedFullShift) {
@@ -1357,7 +1358,7 @@
           }
 
           const isDuplicate = records.some(r =>
-            r.date === date && r.shift === shift && r.nozzle_name === nozzle.nozzle_name
+            normalizeDate(r.date) === date && r.shift === shift && r.nozzle_name === nozzle.nozzle_name
           );
 
           if (isDuplicate) {
@@ -1420,7 +1421,7 @@
       const shift = document.getElementById('recordShift').value;
 
       nozzles.forEach(nozzle => {
-        const isRecorded = records.some(r => r.date === date && r.shift === shift && r.nozzle_name === nozzle.nozzle_name);
+        const isRecorded = records.some(r => normalizeDate(r.date) === date && r.shift === shift && r.nozzle_name === nozzle.nozzle_name);
         const card = document.querySelector(`.nozzle-card[data-nozzle-name="${nozzle.nozzle_name}"]`);
         if (card) {
           card.style.opacity = isRecorded ? '0.6' : '1';
@@ -1732,10 +1733,30 @@
       }).join('');
     }
 
+    function normalizeDate(d) {
+      if (!d) return '';
+      // Extract YYYY-MM-DD
+      const match = d.match(/(\d{4})-(\d{2})-(\d{2})/);
+      if (!match) return d;
+      let y = parseInt(match[1]);
+      const m = match[2];
+      const day = match[3];
+      if (y > 2400) y -= 543;
+      return `${y}-${m}-${day}`;
+    }
+
+    function getTodayString() {
+      const now = new Date();
+      let year = now.getFullYear();
+      if (year > 2400) year -= 543; // Handle Buddhist Era browsers
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
     function updateTodayStats() {
-      // Use local date in YYYY-MM-DD format
-      const today = new Date().toLocaleDateString('en-CA');
-      const todayRecordsList = records.filter(r => r.date === today);
+      const today = getTodayString();
+      const todayRecordsList = records.filter(r => normalizeDate(r.date) === today);
 
       let totalSales = 0;
       let totalLiters = 0;
@@ -1756,8 +1777,8 @@
     }
 
     function updateTodayFuelSummary() {
-      const today = new Date().toLocaleDateString('en-CA');
-      const todayRecordsList = records.filter(r => r.date === today);
+      const today = getTodayString();
+      const todayRecordsList = records.filter(r => normalizeDate(r.date) === today);
 
       if (todayRecordsList.length === 0) {
         document.getElementById('todayFuelSummary').innerHTML = '<p class="text-gray-400 text-sm text-center py-4">ยังไม่มีรายการวันนี้</p>';
@@ -1796,8 +1817,8 @@
     }
 
     function updateTodayRecords() {
-      const today = new Date().toLocaleDateString('en-CA');
-      const todayRecordsList = records.filter(r => r.date === today).sort((a, b) =>
+      const today = getTodayString();
+      const todayRecordsList = records.filter(r => normalizeDate(r.date) === today).sort((a, b) =>
         new Date(b.timestamp) - new Date(a.timestamp)
       );
 
@@ -1990,7 +2011,7 @@
 
       if (type === 'daily') {
         const date = document.getElementById('reportDate').value;
-        filteredRecords = records.filter(r => r.date === date && (!shiftFilter || r.shift === shiftFilter));
+        filteredRecords = records.filter(r => normalizeDate(r.date) === date && (!shiftFilter || r.shift === shiftFilter));
         periodText = `รายงานประจำวันที่ ${formatThaiDate(date)}${shiftFilter ? ' (' + (shiftFilter === 'morning' ? 'กะเช้า' : 'กะบ่าย') + ')' : ''}`;
       } else if (type === 'range') {
         const start = document.getElementById('reportStartDate').value;
