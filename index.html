@@ -1061,9 +1061,15 @@
       if (!date || !shift) return;
 
       nozzles.forEach(nozzle => {
-        // Find the absolute latest record for this nozzle BEFORE or AT the current selection
-        // For simplicity, we just find the latest one in the system
-        const lastRecord = records
+        // 1. Check if there is an EXISTING record for this EXACT date and shift
+        const existingRecord = records.find(r =>
+          r.date === date &&
+          r.shift === shift &&
+          r.nozzle_name === nozzle.nozzle_name
+        );
+
+        // 2. Find the LATEST record overall to determine the default start meter
+        const latestRecordOverall = [...records]
           .filter(r => r.nozzle_name === nozzle.nozzle_name)
           .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
 
@@ -1071,19 +1077,27 @@
         const endInput = document.querySelector(`.meter-input[data-nozzle="${nozzle.__backendId}"][data-type="end"]`);
         const statusBadge = document.querySelector(`.nozzle-card[data-nozzle-name="${nozzle.nozzle_name}"] .latest-meter-badge`);
 
-        if (lastRecord) {
-          if (startInput) startInput.value = lastRecord.meter_end.toFixed(2);
-          if (statusBadge) statusBadge.textContent = `ล่าสุด: ${lastRecord.meter_end.toFixed(2)}`;
+        if (existingRecord) {
+          // If already recorded for this shift, show the recorded data
+          if (startInput) startInput.value = existingRecord.meter_start.toFixed(2);
+          if (endInput) endInput.value = existingRecord.meter_end.toFixed(2);
+          if (statusBadge) statusBadge.textContent = `บันทึกแล้ว: ${existingRecord.meter_end.toFixed(2)}`;
         } else {
-          if (startInput) startInput.value = '0.00';
-          if (statusBadge) statusBadge.textContent = '';
+          // If NOT recorded, use the latest end meter as the NEW start meter
+          if (latestRecordOverall) {
+            if (startInput) startInput.value = latestRecordOverall.meter_end.toFixed(2);
+            if (statusBadge) statusBadge.textContent = `ล่าสุด: ${latestRecordOverall.meter_end.toFixed(2)}`;
+          } else {
+            if (startInput) startInput.value = '0.00';
+            if (statusBadge) statusBadge.textContent = '';
+          }
+          if (endInput) endInput.value = '';
         }
 
-        if (endInput) {
-          endInput.value = '';
-          calculateMeterDifference({ target: endInput });
-        }
+        if (endInput) calculateMeterDifference({ target: endInput });
       });
+
+      updateRecordFormStatus();
     }
 
     function updateNozzleMetersForm() {
@@ -1313,7 +1327,17 @@
         return;
       }
 
-      let hasValidData = false;
+      // Check if EVERYTHING is already recorded
+      const alreadyRecordedFullShift = nozzles.every(nozzle =>
+        records.some(r => r.date === date && r.shift === shift && r.nozzle_name === nozzle.nozzle_name)
+      );
+
+      if (alreadyRecordedFullShift) {
+        if (!confirm('📌 กะนี้บันทึกข้อมูลครบทุกหัวจ่ายแล้ว คุณแน่ใจหรือไม่ว่าต้องการบันทึกซ้ำ? (ข้อมูลเก่าจะไม่หายไป แต่จะเป็นการเพิ่มรายการใหม่)')) {
+          return;
+        }
+      }
+
       const recordsToAdd = [];
       const skippedNozzles = [];
 
@@ -1328,16 +1352,12 @@
         if (input.value !== '' && meterEnd > 0) {
           if (meterEnd < meterStart) {
             alert(`⚠️ หัวจ่าย ${nozzle.nozzle_name}: เลขมิเตอร์สิ้นสุด (${meterEnd}) ห้ามน้อยกว่าเลขเริ่มต้น (${meterStart})!`);
-            hasValidData = false;
-            recordsToAdd.length = 0; // Clear all to prevent partial save
+            recordsToAdd.length = 0;
             return;
           }
 
-          // Check for existing record
           const isDuplicate = records.some(r =>
-            r.date === date &&
-            r.shift === shift &&
-            r.nozzle_name === nozzle.nozzle_name
+            r.date === date && r.shift === shift && r.nozzle_name === nozzle.nozzle_name
           );
 
           if (isDuplicate) {
@@ -1348,13 +1368,11 @@
           const currentPrice = settings.fuelPrices[nozzle.fuel_type] || 0;
           const liters = meterEnd - meterStart;
           const revenue = liters * currentPrice;
-          const cost = liters * (nozzle.cost_per_liter || defaultCosts[nozzle.fuel_type]);
+          const cost = liters * (nozzle.cost_per_liter || (settings.fuelPrices[nozzle.fuel_type] * 0.9));
           const profit = revenue - cost;
 
           recordsToAdd.push({
-            type: 'record',
-            date: date,
-            shift: shift,
+            type: 'record', date, shift,
             nozzle_name: nozzle.nozzle_name,
             fuel_type: nozzle.fuel_type,
             meter_start: meterStart,
@@ -1362,33 +1380,20 @@
             liters_sold: liters,
             price_per_liter: currentPrice,
             revenue: revenue,
-            cost_per_liter: nozzle.cost_per_liter || defaultCosts[nozzle.fuel_type],
+            cost_per_liter: nozzle.cost_per_liter || (settings.fuelPrices[nozzle.fuel_type] * 0.9),
             cost: cost,
             profit: profit,
             timestamp: new Date().toISOString()
           });
-          hasValidData = true;
         }
       });
 
-      if (skippedNozzles.length > 0) {
-        if (!confirm(`หัวจ่าย [${skippedNozzles.join(', ')}] มีข้อมูลในกะนี้อยู่แล้ว \nต้องการข้ามรายการเหล่านี้และบันทึกส่วนที่เหลือใช่หรือไม่?`)) {
-          return;
-        }
-      }
-
-      if (!hasValidData && skippedNozzles.length === 0) {
-        showToast('กรุณากรอกมิเตอร์ที่มีการเปลี่ยนแปลง', 'error');
-        return;
-      }
-
       if (recordsToAdd.length === 0) {
-        showToast('ไม่มีข้อมูลใหม่ที่สามารถบันทึกได้', 'warning');
-        return;
-      }
-
-      if (allData.length + recordsToAdd.length > 999) {
-        showToast('ถึงขีดจำกัดข้อมูลแล้ว', 'error');
+        if (skippedNozzles.length > 0) {
+          showToast(`กะนี้ของ ${skippedNozzles.join(', ')} บันทึกไปแล้ว`, 'warning');
+        } else {
+          showToast('กรุณากรอกเลขมิเตอร์สิ้นสุดอย่างน้อย 1 หัวจ่าย', 'warning');
+        }
         return;
       }
 
@@ -1397,15 +1402,12 @@
         const result = await window.dataSdk.createBatch(recordsToAdd);
         if (result.isOk) {
           showToast('บันทึกข้อมูลสำเร็จ! ✅', 'success');
-          document.querySelectorAll('.meter-input[data-type="end"]').forEach(input => {
-            input.value = '';
-            calculateMeterDifference({ target: input });
-          });
+          document.querySelectorAll('.meter-input[data-type="end"]').forEach(input => { input.value = ''; });
+          setTimeout(() => updateMetersFromLastRecord(), 1500);
         } else {
-          showToast('เกิดข้อผิดพลาดในการบันทึกชุดข้อมูล', 'error');
+          showToast('เกิดข้อผิดพลาดในการบันทึก', 'error');
         }
       } catch (err) {
-        console.error(err);
         showToast('ระบบขัดข้อง: ' + err.message, 'error');
       } finally {
         showLoading(false);
