@@ -1749,27 +1749,28 @@
 
     function normalizeDate(d) {
       if (!d) return '';
-      // 1. Try YYYY-MM-DD (ISO-like)
-      let match = d.match(/(\d{4})-(\d{2})-(\d{2})/);
-      if (match) {
-        let y = parseInt(match[1]);
-        const m = match[2];
-        const day = match[3];
-        if (y > 2400) y -= 543; // Buddhist Era
-        return `${y}-${m}-${day}`;
-      }
 
-      // 2. Try DD/MM/YYYY (Common in Sheets)
-      match = d.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-      if (match) {
-        const day = match[1].padStart(2, '0');
-        const m = match[2].padStart(2, '0');
-        let y = parseInt(match[3]);
-        if (y > 2400) y -= 543; // Buddhist Era
-        return `${y}-${m}-${day}`;
-      }
+      try {
+        if (d instanceof Date) return d.toISOString().split('T')[0];
+        const str = String(d).trim();
 
-      return d; // Fallback
+        // 1. ISO YYYY-MM-DD
+        let match = str.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+        if (match) {
+          let y = parseInt(match[1]);
+          if (y > 2400) y -= 543;
+          return `${y}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}`;
+        }
+
+        // 2. DMY DD/MM/YYYY
+        match = str.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
+        if (match) {
+          let y = parseInt(match[3]);
+          if (y > 2400) y -= 543;
+          return `${y}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
+        }
+      } catch (e) { console.error(e); }
+      return String(d);
     }
 
     function getTodayString() {
