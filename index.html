@@ -843,23 +843,28 @@
 
     async function saveSettings(newSettings) {
       showLoading(true);
-      const existingSettings = allData.find(d => d.type === 'settings');
-      let result;
-      if (existingSettings) {
-        // Use update instead of delete+create to prevent race conditions
-        newSettings.__backendId = existingSettings.__backendId;
-        result = await window.dataSdk.update(newSettings);
-      } else {
-        result = await window.dataSdk.create(newSettings);
-      }
-      showLoading(false);
-      if (result.isOk) {
-        // Optimistically update the UI if possible, or wait for SDK refresh
-        settings = { ...settings, ...newSettings };
-        updateSystemUI();
-        showToast('บันทึกการตั้งค่าสำเร็จ ✅', 'success');
-      } else {
-        showToast('เกิดข้อผิดพลาด', 'error');
+      try {
+        const existingSettings = (window.allData || []).find(d => d.type === 'settings');
+        let result;
+        if (existingSettings) {
+          newSettings.__backendId = existingSettings.__backendId;
+          result = await window.dataSdk.update(newSettings);
+        } else {
+          result = await window.dataSdk.create(newSettings);
+        }
+
+        if (result && result.isOk) {
+          settings = { ...settings, ...newSettings };
+          updateSystemUI();
+          showToast('บันทึกการตั้งค่าสำเร็จ ✅', 'success');
+        } else {
+          showToast('เกิดข้อผิดพลาดในการบันทึก', 'error');
+        }
+      } catch (err) {
+        console.error('Save Settings Error:', err);
+        showToast('ระบบขัดข้อง: ' + err.message, 'error');
+      } finally {
+        showLoading(false);
       }
     }
 
@@ -1264,17 +1269,22 @@
       }
 
       showLoading(true);
-      const result = await window.dataSdk.createBatch(recordsToAdd);
-      showLoading(false);
-
-      if (result.isOk) {
-        showToast('บันทึกข้อมูลสำเร็จ! ✅', 'success');
-        document.querySelectorAll('.meter-input[data-type="end"]').forEach(input => {
-          input.value = '';
-          calculateMeterDifference({ target: input });
-        });
-      } else {
-        showToast('เกิดข้อผิดพลาดในการบันทึกชุดข้อมูล', 'error');
+      try {
+        const result = await window.dataSdk.createBatch(recordsToAdd);
+        if (result.isOk) {
+          showToast('บันทึกข้อมูลสำเร็จ! ✅', 'success');
+          document.querySelectorAll('.meter-input[data-type="end"]').forEach(input => {
+            input.value = '';
+            calculateMeterDifference({ target: input });
+          });
+        } else {
+          showToast('เกิดข้อผิดพลาดในการบันทึกชุดข้อมูล', 'error');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('ระบบขัดข้อง: ' + err.message, 'error');
+      } finally {
+        showLoading(false);
       }
     }
 
@@ -1425,19 +1435,24 @@
       }
 
       showLoading(true);
-      const result = await window.dataSdk.createBatch(recordsToSave);
-      showLoading(false);
-
-      if (result.isOk) {
-        batchStockItems = [];
-        renderBatchItems();
-        document.getElementById('batchTransportCost').value = '0';
-        document.getElementById('batchOtherCost').value = '0';
-        document.getElementById('batchNote').value = '';
-        showToast('บันทึกสต๊อกทุกรายการสำเร็จ! ✅', 'success');
-        switchTab('stock');
-      } else {
-        showToast('เกิดข้อผิดพลาดในการบันทึกสต๊อก', 'error');
+      try {
+        const result = await window.dataSdk.createBatch(recordsToSave);
+        if (result.isOk) {
+          batchStockItems = [];
+          renderBatchItems();
+          document.getElementById('batchTransportCost').value = '0';
+          document.getElementById('batchOtherCost').value = '0';
+          document.getElementById('batchNote').value = '';
+          showToast('บันทึกสต๊อกทุกรายการสำเร็จ! ✅', 'success');
+          switchTab('stock');
+        } else {
+          showToast('เกิดข้อผิดพลาดในการบันทึกสต๊อก', 'error');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('ระบบขัดข้อง: ' + err.message, 'error');
+      } finally {
+        showLoading(false);
       }
     }
 
