@@ -48,7 +48,7 @@ window.dataSdk = {
 
       const response = await fetch(GOOGLE_SHEET_URL, {
         method: 'POST',
-        mode: 'no-cors',
+      
         body: JSON.stringify({ action: 'batchCreate', data: items })
       });
 
@@ -64,7 +64,7 @@ window.dataSdk = {
     try {
       await fetch(GOOGLE_SHEET_URL, {
         method: 'POST',
-        mode: 'no-cors',
+        
         body: JSON.stringify({ action: 'update', data: item })
       });
       setTimeout(() => window.dataSdk.refresh(), 1500);
@@ -78,7 +78,7 @@ window.dataSdk = {
     try {
       await fetch(GOOGLE_SHEET_URL, {
         method: 'POST',
-        mode: 'no-cors',
+        
         body: JSON.stringify({ action: 'delete', id: item.__backendId })
       });
       setTimeout(() => window.dataSdk.refresh(), 1500);
